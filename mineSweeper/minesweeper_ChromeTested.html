@@ -1,0 +1,807 @@
+
+<?xml version = "1.0" encoding = "utf-8"?>
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+
+
+<!-- MineSweeper by Hanh Pham-->
+
+
+
+<html xmlns = "http://www.w3.org/1999/xhtml">
+
+   <head>
+
+      <title>MineSweeper</title>
+
+
+
+<style type = "text/css" >
+
+      	.main		{
+
+      			position: fixed;
+
+      			background-color: #F2F2F2;
+
+      			top: 20px;
+				left: 20px;
+				 
+				 width: 60em;
+				 height: 38em;  
+
+				 overflow: auto;
+
+				 
+				   		
+      			}
+
+
+
+      	#bigScan {
+
+      				position: absolute;
+      				opacity: 0.7;
+
+
+      				width: 0.5em;
+      				height: 0.5em;
+
+      				z-index:-100;
+
+
+      				background-size: cover;
+      				background-repeat:no-repeat;
+      				background-image: url('images/bigScan.png');
+
+
+      			
+
+      				 -webkit-transition: left 3s ease-in-out;
+
+
+      			}
+
+
+				  
+		
+		.radar { 
+				width:4em;
+				height:4em;
+				background-size:cover;
+				
+				position: absolute;
+							
+				opacity: 0.5;
+				z-index:0;
+				
+
+			}
+
+
+	
+		
+		.board { 
+				z-index: 1;
+	
+				position: absolute;
+			  
+
+	
+			}
+		
+					
+
+        td      { width: 1.7em;
+
+                   height: 1.7em;
+				   
+				   background-color: #2C2C34; 
+
+				   background-image: url('images/blueSquare.png');
+
+				   background-size: cover;
+				   
+				   text-align: center;
+				   
+				   border-width: 0px;
+				   
+				   font-family: tahoma, geneva, sans-serif 
+				   
+			
+				   
+				   }
+				          		
+		
+		 
+		 .button { height: 2.5em; width: 8em
+
+		 			}
+
+
+		 .banner {
+		 			position: absolute;
+
+		 			z-index: -500;
+
+		 			font-size: 100%;
+
+		 			color: white;
+
+		 			
+		 			}
+
+
+		 #helpBox {  width: 34em;
+		 			 height: 5em;
+		 			 border-color: blue;
+		 			
+
+						border-style:dotted;
+						border-width:0.2em;
+	
+		 			}
+
+
+
+ </style>
+
+<!--************************************************ SCRIPT STARTS ***************************************-->
+
+ <script type = "text/javascript"  >
+
+  		 var board =[];		
+		 var mineCount;
+		 var clearedCellCount;
+		 var mines=[]; //locations of mines
+
+		 var currentBoardWidth; //number of cells per side
+		 var offsetCoords=[];
+
+		 var txtColors=['green','orange','red','black'];
+		 var levels = [ .1, .16, .32, .75]; // fraction of board to contain mines
+
+		 var timer;
+
+
+		 //set input controls, create game-board with default settings
+		 function start(){
+
+		 		document.getElementById("resetButton").onclick=reset;
+		 		document.getElementById("validateButton").onclick=validate;
+		 		offsetCoords=[20,20];
+
+
+		 		var boardSize = 8;
+
+		 		
+		 		setCheckedValue(document.forms["userInput"].elements["level"],1);
+		 		mineCount = Math.round(levels[1] * Math.pow(boardSize,2));
+
+
+		 		
+		 		createBoard(boardSize);
+		 		setCheckedValue(document.forms["userInput"].elements["boardSize"],boardSize);
+
+		 }
+
+
+
+		 //create game-board with   size = number of cells on a side
+		 function createBoard (size)
+
+         {
+     	   
+
+     	   currentBoardWidth=size;
+     	   clearedCellCount=0; 
+
+            var tbody = document.getElementById( "tablebody" );
+
+
+			//remove old board if exists
+			if(board.length!=0){
+				while(tbody.hasChildNodes())
+					tbody.removeChild(tbody.firstChild);
+
+				board.length=0;
+
+            }
+
+		    //create new board
+            for ( var i = 0; i < size; i++ )
+
+            {
+
+               board[i] = document.createElement( "tr" );
+
+               
+
+               for ( var j = 0; j < size; j++ )
+
+               {
+			  
+				
+				
+				 var coords = new Object();
+				  coords.x = i;
+				  coords.y = j;
+                  board[i][j] = document.createElement( "td" );
+				  //board[i][j].id = i+"_"+j;
+				  board[i][j].coords = coords;
+				  board[i][j].marker="covered";
+				  board[i][j].flag=0;
+				  board[i][j].value=0;
+				 // board[i][j].innerHTML=value;
+
+                  board[i][j].onclick = processMouseMove;
+
+                  board[i].appendChild( board[i][j] );
+				
+               } // end for
+
+
+
+               tbody.appendChild( board[i] );
+
+            } // end for
+			
+			placeMines(mineCount);
+
+		 	adjustPositions(tbody);
+		 		
+			
+		
+
+         } // end function createBoard
+
+         //adjust position/scale of input-controls/hidden-Images relative to current board size
+         function adjustPositions(tbody){
+
+
+         	document.getElementById("controls").style.top=tbody.offsetHeight +"px";
+			var bigScan = document.getElementById('bigScan');
+		 		bigScan.style.width= Math.round(tbody.offsetHeight*.05)+"px";
+
+				
+		 		bigScan.style.height=tbody.offsetHeight+"px";
+		 		bigScan.style.top="0px";
+		 		bigScan.style.left="0px";
+
+
+		 	var newPos = .75*tbody.offsetHeight/2+"px"	
+		 	var winB = document.getElementById("winBanner");
+		 	var failB=document.getElementById("failBanner");
+
+		 	winB.style.top=newPos;
+		 	winB.style.left=newPos;
+		 	winB.style.fontSize=.06*tbody.offsetHeight+"px";
+		 	failB.style.top=newPos;
+		 	failB.style.left=newPos;
+		 	failB.style.fontSize=.06*tbody.offsetHeight+"px";
+
+
+         }
+
+
+         //place the given number of mines at random postions 
+         function placeMines(number)		 
+		 {
+			
+			var i=0;
+			
+		
+
+
+			//reset array of mine locations
+			mines.length=0;
+
+			
+			while(i<number)
+			{
+				//get random placements for mines
+				var x=Math.round(Math.random()*(board.length-1));
+				var y=Math.round(Math.random()*(board.length-1));
+				
+			
+				//cell.value=number of mines in adjacent cells, value=-1 when cell contains a mine
+				if(board[x][y].value!=-1){
+				board[x][y].value=-1;	
+				mines[i]=[x,y];
+				
+				
+				
+				
+				tapNeighbors(upMineValue,board[x][y]); //update cell.value for adjacent cells
+				i++;
+				
+				
+				}
+				
+			
+			}
+		
+		}
+
+
+		 //create a new game
+         function reset(){
+
+         	var sizeRadioButtons = document.forms['userInput'].elements["boardSize"];
+
+         	currentBoardWidth = getCheckedValue(sizeRadioButtons);
+
+         	var level= parseInt(getCheckedValue(document.forms['userInput'].elements["level"]));
+
+         	mineCount = Math.round(Math.pow(currentBoardWidth,2)*levels[level]);
+
+         	
+
+         	createBoard(currentBoardWidth);
+         	
+         	
+         
+     }
+
+
+
+		 
+
+
+		function upMineValue(cell){
+
+		if(cell.value!=-1)  //avoid cells already containing a mine
+			cell.value++;
+		 }
+
+
+
+		 //perform the function 'fcn' on the cell's nearest neighbors
+		 function tapNeighbors(fcn, cell)
+		 {
+				var side = board.length;
+		 
+				var coords = cell.coords;
+				
+				//check cell's 8 nearest neighbors
+				
+				//right
+				if (coords.x+1 <side)
+					fcn(board[coords.x+1][coords.y]);
+				
+				//diagonal, top-right
+				if (coords.x+1 <side && coords.y-1 >=0)
+					fcn(board[coords.x+1][coords.y-1]);
+				
+				//top
+				if(coords.y-1>=0)
+					fcn(board[coords.x][coords.y-1]);
+				
+				//diagonal, top-left
+				if(coords.x-1>=0 && coords.y-1>=0)
+					fcn(board[coords.x-1][coords.y-1]);
+				
+				//left
+				if(coords.x-1>=0)
+					fcn(board[coords.x-1][coords.y]);
+				
+				//diagonal bottom-left
+				if(coords.x-1>=0 && coords.y+1<side)
+					fcn(board[coords.x-1][coords.y+1]);
+					
+				//bottom
+				if(coords.y+1<side)
+					fcn(board[coords.x][coords.y+1])
+				
+				//diagonal bottom-right
+				if(coords.x+1<side && coords.y+1<side)
+					fcn(board[coords.x+1][coords.y+1]);
+					 
+		 
+		 }
+
+		 //reveal mines within the radar's reach without ending the game
+		  function revealMines(x,y,r){
+
+		 		var board_table = document.getElementById("tablebody");
+		 		var scale = board_table.offsetHeight/currentBoardWidth;
+
+	
+		 		var startIndexes = [Math.round((x-r)/scale), Math.round((y-r)/scale)];
+		 		var endIndexes = [Math.floor((x+r)/scale), Math.floor((y+r)/scale)];
+		 		
+
+
+		 		for(var i=startIndexes[0];i<=endIndexes[0];i++)
+		 			for(var j=startIndexes[1];j<=endIndexes[1];j++)
+		 				if(i>=0 && i<board.length && j>=0 && j<board.length)
+		 					if(board[j][i].value==-1)
+		 						board[j][i].style.backgroundImage="url('images/mine-undercover.png')";
+
+
+		 
+		 
+		 }
+		 
+
+		 //end the current game; imgStr=filename of alternative mine images
+		 function endGame(imgStr){
+
+
+		 	//show the mines
+					for(var i=0;i<mines.length;i++){
+						var x=mines[i][0];
+						var y=mines[i][1];
+						board[x][y].style.backgroundImage="url('images/"+imgStr+"')";						
+						
+					}
+
+					//deactivate onClick response
+					for(var i=0;i<board.length;i++)
+						for(var j=0;j<board.length;j++)
+							board[i][j].onclick=null;
+
+
+		 }
+
+
+
+		 //uncover the cell, clear open areas "gossip-style"
+		 function checkCell(cell)
+		 {
+			if(cell.marker=="covered")
+			{
+			
+				if(cell.value==-1) //player just uncovered a mine! game over!
+				{
+				
+					endGame("mine.png");
+
+					//show 'fail' banner
+					var banner = document.getElementById('failBanner');
+					banner.style.color='#FF6600';
+		 			banner.style["WebkitTransitionDuration"]='0.5s';
+		 			setTimeout(function(){banner.style["zIndex"]=200; banner.style["WebkitTransform"]='scale(7)'},300);
+		 			setTimeout(function(){banner.style["zIndex"]=-200; banner.style["WebkitTransitionDuration"]='0s';banner.style["WebkitTransform"]='scale(1.0)'},2500);
+
+
+					
+				}
+				
+				else{
+
+					//reveal a cleared cell
+					cell.style.backgroundImage="url('images/blueSquareFlipped.png')";
+					cell.marker="uncovered";
+					clearedCellCount++;
+
+
+					//show number of adjacent mines
+					if(cell.value != 0){
+						cell.innerHTML=cell.value;
+						cell.style.color=txtColors[(cell.value-1)%4];
+						}
+
+				    else
+						if(cell.value==0)
+							//tell neighbors to check themselves
+							setTimeout(function(){tapNeighbors(checkCell,cell);}, 100);
+				}
+			}
+			
+			
+			
+		 
+		 }
+
+
+
+		 //check that the game ends in a win or loss
+		 function validate(){
+
+
+		 	//show scanner effect
+		 	var bigScan = document.getElementById('bigScan');
+
+		 		
+		 		//show a "scanning the board" effect
+		 		bigScan.style["zIndex"]=20;
+				bigScan.style["WebkitTransitionDuration"]='3s';
+
+		 		bigScan.style.left = document.getElementById("tablebody").offsetHeight - parseInt(bigScan.style.width.replace("px",''))+ "px";
+				setTimeout(function(){bigScan.style["zIndex"]=-100;bigScan.style["WebkitTransitionDuration"]='0s';endGame("mine-undercover.png")},3000);
+
+		 		var banner;
+		 		var scale;
+
+		 	//all clear, player wins
+		 	if(clearedCellCount==Math.pow(currentBoardWidth,2)-mineCount){
+		 		
+
+		 		banner = document.getElementById('winBanner');
+
+		 		scale=4;
+
+
+		 	}
+
+
+		 	//player loses
+		 	else{
+
+		 		 banner = document.getElementById('failBanner');
+		 		 scale=7;
+		 
+		 		
+		 	
+		 	}
+
+		 	//show win/lose banner
+		 	banner.style.color='#FF6600';
+		 	banner.style["WebkitTransitionDuration"]='0.5s';
+		 	setTimeout(function(){banner.style["zIndex"]=200; banner.style["WebkitTransform"]='scale('+scale+')'},3000);
+		 	setTimeout(function(){banner.style["zIndex"]=-200; banner.style["WebkitTransitionDuration"]='0s';banner.style["WebkitTransform"]='scale(1.0)'},5000);
+
+		 	
+
+
+
+		 }
+
+		 
+		 //set the radar position at (x,y) and its visibility:on/off
+		 function setRadar(x,y, visible){
+
+		 		var radar=document.getElementById("radar-sweeper");
+				var radar_bg=document.getElementById("radar-bg");
+
+
+			
+
+				if(visible){
+	
+						radar_bg.style["left"]= x+"px";
+						radar_bg.style["top"]= y+"px";
+						radar_bg.style["zIndex"]=9;
+				
+			 
+						radar.style["left"]= x+"px";
+						radar.style["top"]=  y+"px";
+						radar.style["zIndex"]=10;
+
+				
+				}
+				else{
+
+
+						
+						radar_bg.style["left"]= offsetCoords[1]+"px";
+						radar_bg.style["top"]= offsetCoords[0]+"px";
+						radar_bg.style["zIndex"]=-5;
+				
+			 
+						radar.style["left"]=offsetCoords[1]+"px";
+						radar.style["top"]=  offsetCoords[0]+"px";
+						radar.style["zIndex"]=-5;
+
+				}
+
+
+
+		 }
+
+
+
+		 //handle mouse clicks
+         function processMouseMove( e )
+         {       
+
+			
+			var angle=1;
+			
+			if( e.altKey){
+
+				//cheat: scan for nearby mines
+	
+				var radar=document.getElementById("radar-sweeper");
+
+
+				var x = e.clientX - 0.5*radar.offsetHeight - offsetCoords[1];
+				var y = e.clientY - 0.5*radar.offsetHeight- offsetCoords[0];
+
+				
+				setRadar(x,y,true);
+				var radarRadius = 0.9*radar.offsetHeight/2;
+
+
+				timer=setInterval(function(){radar.style["WebkitTransform"]="rotate("+angle+"deg)";angle=angle+10},45);
+
+				setTimeout(function(){revealMines(e.clientX - offsetCoords[1],e.clientY - offsetCoords[0],radarRadius)}, 1000);
+			
+
+				setTimeout(function(){ setRadar(null,null,false);clearInterval(timer);},2000);		
+								
+			
+			
+			} //end altKey
+				
+			
+			   
+			if( !e.ctrlKey && !e.altKey)
+				if(this.marker=="covered")
+					checkCell(this);
+			
+			
+			//add or remove a flag on a cell
+			if ( e.ctrlKey )
+				if (this.marker == "covered"){
+					if(this.flag == 0){
+						this.style.backgroundImage = "url('images/blueSquareFlagged.png')";
+						this.flag=1;
+						}
+					else 
+						{
+							this.style.backgroundImage="url('images/blueSquare.png')";
+							this.flag=0;
+						}
+					}
+		    
+		 
+		 }//end processMove
+
+
+
+
+
+   //returns checked value of a radio-button group
+   function getCheckedValue(radioObj) {
+
+		if(!radioObj)
+
+			return "";
+
+		var radioLength = radioObj.length;
+
+		if(radioLength == undefined)
+
+			if(radioObj.checked)
+
+				return (radioObj.value);
+
+			else
+
+				return "";
+
+		for(var i = 0; i < radioLength; i++) {
+
+			if(radioObj[i].checked) {
+
+				return radioObj[i].value;
+
+			}
+
+		}
+
+		return "";
+
+	}
+
+
+
+	//sets the checked value of a radio-button group
+	function setCheckedValue(radioObj, newValue) {
+
+		if(!radioObj)
+
+			return;
+
+		var radioLength = radioObj.length;
+
+		if(radioLength == undefined) {
+
+			radioObj.checked = (radioObj.value == newValue.toString());
+
+			return;
+
+		}
+
+		for(var i = 0; i < radioLength; i++) {
+
+			radioObj[i].checked = false;
+
+			if(radioObj[i].value == newValue.toString()) {
+
+			radioObj[i].checked = true;
+
+			}
+
+		}
+
+	}
+
+
+		
+
+</script>
+
+ <!--*********************************************** SCRIPT ENDS *********************************************************-->
+
+   </head>
+
+
+
+
+
+   <body onload = "start()">
+   
+   <div class="main" id="main">
+	  
+   
+	  <table id="board" class="board" cellspacing='0' border='5'><tbody id = "tablebody"> 
+	  </tbody></table>
+	  
+	 <div class="radar " id="radar-bg"  style="background-image:url('images/radar-icon.png'); opacity:0.5"></div>
+	 <div class="radar " id="radar-sweeper" style="background-image:url('images/radar-icon-sweep.png'); opacity:0.8"></div>
+	 <div id='bigScan'></div>
+	 <div id="winBanner" class='banner'><p>You Win!</p></div>
+	 <div id="failBanner" class='banner'><p>Fail!</p></div>
+
+	  
+	  <div id="controls" class="board" >
+
+	  	<p> 
+	  		<form name="userInput">
+				<input type="radio" name="boardSize" value="8" /> 8x8 
+				<input type="radio" name="boardSize" value="16" /> 16x16 
+				<input type="radio" name="boardSize" value="32" /> 32x32 <br/>
+
+				<input type="radio" name="level" value="0" /> easy
+				<input type="radio" name="level" value="1" /> intermediate
+				<input type="radio" name="level" value="2" /> hard
+				<input type="radio" name="level" value="3" /> INSANE
+				</form>
+		</p>
+
+
+
+		<p > 
+            <input class="button" id="resetButton" type = "button" value = "New Game"  />
+            <input class="button" id="validateButton" type = "button" value = "Validate" />	
+
+
+            
+        </p>
+
+        <div id="helpBox" >
+        	
+        	<ul>  
+        		<li>to add/remove flag on a cell: press CtrKey + click on cell  </li>
+        	    <li> to cheat (scan the area surrounding a cell for mines): press AltKey + click on cell </li>
+        	</ul>
+
+
+        </div>
+
+       
+	  </div> <!--end  'controls' -->
+
+
+
+	  
+
+
+
+
+	</div> 
+
+	
+	
+	  
+   </body>
+
+
+
+</html>
